@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "github.com/ackhia/flash/pb";
+
+message Tx {
+    string to = 1;
+    string from = 2;
+    float amount = 3;
+}
