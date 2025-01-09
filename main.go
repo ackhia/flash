@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/ackhia/flash/crypto"
 	golog "github.com/ipfs/go-log/v2"
 	"github.com/spf13/cobra"
 )
@@ -25,8 +26,8 @@ func main() {
 		Short: "Create a key pair",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			priv, pub := CreateKeyPair()
-			WriteKeyfile(args[0], priv, pub)
+			priv, pub := crypto.CreateKeyPair()
+			crypto.WriteKeyfile(args[0], priv, pub)
 		},
 	}
 
@@ -35,7 +36,7 @@ func main() {
 		Short: "Start the node",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			priv, pub, err := ReadKeyfile(args[0])
+			priv, pub, err := crypto.ReadKeyfile(args[0])
 			if err != nil {
 				log.Fatalf("Could not read file %s %s", args[0], err)
 			}
