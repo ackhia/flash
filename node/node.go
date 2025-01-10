@@ -18,10 +18,14 @@ type Node struct {
 	host host.Host
 }
 
-func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string) {
+func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, host host.Host) {
 	log.Print("Node starting")
 
-	n.host, _ = libp2p.New(libp2p.Identity(privKey))
+	if host == nil {
+		n.host, _ = libp2p.New(libp2p.Identity(privKey))
+	} else {
+		n.host = host
+	}
 
 	go n.startTransactionServer()
 
@@ -41,7 +45,12 @@ func (n Node) getTransactions(addrInfo string) {
 	n.host.Connect(context.Background(), *serverAddr)
 
 	// Open a stream to the server using the transactions protocol
-	stream, _ := n.host.NewStream(context.Background(), serverAddr.ID, protocol.ID("/flash/transactions/1.0.0"))
+	stream, err := n.host.NewStream(context.Background(), serverAddr.ID, protocol.ID("/flash/transactions/1.0.0"))
+
+	if err != nil {
+		log.Printf("Could not create stream %s", err)
+		return
+	}
 
 	// Read the data from the stream
 	data, _ := io.ReadAll(stream)

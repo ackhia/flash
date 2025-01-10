@@ -3,17 +3,30 @@ package node
 import (
 	"testing"
 
-	"github.com/ackhia/flash/crypto"
+	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 func TestGetTransaction(t *testing.T) {
+	mn := mocknet.New()
+
 	serverNode, clientNode := Node{}, Node{}
 
-	clientPrivKey, _ := crypto.CreateKeyPair()
-	serverPrivKey, _ := crypto.CreateKeyPair()
+	clientHost, err := mn.GenPeer()
+	if err != nil {
+		panic(err)
+	}
 
-	serverNode.Init(clientPrivKey, []string{})
+	serverHost, err := mn.GenPeer()
+	if err != nil {
+		panic(err)
+	}
+
+	if err := mn.LinkAll(); err != nil {
+		panic(err)
+	}
+
+	serverNode.Init(nil, []string{}, clientHost)
 	serverAddr := serverNode.host.Addrs()[0].String()
 
 	maddr, err := ma.NewMultiaddr(serverAddr)
@@ -21,5 +34,6 @@ func TestGetTransaction(t *testing.T) {
 		t.Fatalf("Failed to create Multiaddr: %v", err)
 	}
 
-	clientNode.Init(serverPrivKey, []string{maddr.String() + "/p2p/" + serverNode.host.ID().String()})
+	serverMultiAddr := maddr.String() + "/p2p/" + serverNode.host.ID().String()
+	clientNode.Init(nil, []string{serverMultiAddr}, serverHost)
 }
