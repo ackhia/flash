@@ -38,7 +38,7 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			priv, pub, err := crypto.ReadKeyfile(args[0])
 			if err != nil {
-				log.Fatalf("Could not read file %s %s", args[0], err)
+				log.Fatalf("Could not read file %s %v", args[0], err)
 			}
 
 			privBytes, _ := priv.Raw()

@@ -1,12 +1,15 @@
 package crypto
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
 
+	"github.com/ackhia/flash/models"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"gopkg.in/yaml.v3"
 )
 
@@ -109,4 +112,49 @@ func ReadKeyfile(filename string) (crypto.PrivKey, crypto.PubKey, error) {
 	}
 
 	return privKey, pubKey, nil
+}
+
+func hashTx(tx *models.Tx) []byte {
+	data := fmt.Sprintf("%d%s%s%f", tx.SequenceNum, tx.From, tx.To, tx.Amount)
+	hash := sha256.Sum256([]byte(data))
+
+	return hash[:]
+}
+
+func hashTxWithSig(tx *models.Tx) []byte {
+	data := fmt.Sprintf("%d%s%s%f%x", tx.SequenceNum, tx.From, tx.To, tx.Amount, tx.Sig)
+	hash := sha256.Sum256([]byte(data))
+
+	return hash[:]
+}
+
+func SignTx(tx *models.Tx, privKey crypto.PrivKey) error {
+	hash := hashTx(tx)
+
+	if sig, err := privKey.Sign(hash); err != nil {
+		return err
+	} else {
+		tx.Sig = sig
+	}
+
+	return nil
+}
+
+func VerifyVerifier(verifier *models.Verifier, tx *models.Tx, pubKey crypto.PubKey, p peer.ID) (bool, error) {
+	if verifier.ID != p.String() {
+		return false, nil
+	}
+
+	hash := hashTxWithSig(tx)
+	return pubKey.Verify(hash, verifier.Sig)
+}
+
+func CreateVerifyerSig(tx *models.Tx, privKey crypto.PrivKey) ([]byte, error) {
+	hash := hashTxWithSig(tx)
+	sig, err := privKey.Sign(hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return sig, nil
 }
