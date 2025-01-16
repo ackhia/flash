@@ -46,7 +46,11 @@ func (n Node) startVerificationServer() {
 		}
 
 		//TODO: Check balance
-		//TODO: Check sequence number
+
+		if len(n.Txs[tx.From]) != tx.SequenceNum {
+			log.Printf("Invalid sequence number %d", tx.SequenceNum)
+		}
+
 		if tx.Amount <= 0 {
 			return
 		}

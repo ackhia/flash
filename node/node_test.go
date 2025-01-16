@@ -71,18 +71,20 @@ func createMultiaddress(t *testing.T, serverNode Node) string {
 func TestVerifyTx(t *testing.T) {
 	server, client := createNetwork(t)
 
-	tx := models.Tx{
-		To:     server.host.ID().String(),
-		From:   client.host.ID().String(),
-		Amount: 20,
+	tx, err := client.BuildTx(client.host.ID().String(),
+		server.host.ID().String(),
+		20)
+
+	if err != nil {
+		t.Fatalf("Could not build tx: %v", err)
 	}
 
-	err := crypto.SignTx(&tx, client.privKey)
+	err = crypto.SignTx(tx, client.privKey)
 	if err != nil {
 		t.Fatalf("Could not sign tx: %v", err)
 	}
 
-	err = client.VerifyTx(&tx)
+	err = client.VerifyTx(tx)
 	if err != nil {
 		t.Fatalf("Could not send tx: %v", err)
 	}
@@ -91,7 +93,7 @@ func TestVerifyTx(t *testing.T) {
 		t.Fatal("Verification not found")
 	}
 
-	r, err := crypto.VerifyVerifier(&tx.Verifiers[0], &tx, server.privKey.GetPublic(), server.host.ID())
+	r, err := crypto.VerifyVerifier(&tx.Verifiers[0], tx, server.privKey.GetPublic(), server.host.ID())
 
 	if err != nil {
 		t.Fatalf("VerifyVerifier failed with error %v", err)

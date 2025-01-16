@@ -114,36 +114,46 @@ func (n Node) getNodeVerification(tx *models.Tx, p peer.ID) error {
 
 	tx.Verifiers = append(tx.Verifiers, verifier)
 
+	return nil
+}
+
+func (n Node) VerifyTx(tx *models.Tx) error {
+
+	err := n.fetchVerifications(tx)
+	if err != nil {
+		return err
+	}
+
 	n.Txs[n.host.ID().String()] = append(n.Txs[n.host.ID().String()], *tx)
 
 	return nil
 }
 
-func (n Node) VerifyTx(tx *models.Tx) error {
-	if tx.Amount <= 0 {
-		return errors.New("amount must be > 0")
+func (n Node) BuildTx(from string, to string, amount float64) (*models.Tx, error) {
+
+	if amount <= 0 {
+		return nil, errors.New("amount must be > 0")
 	}
 
-	_, err := peer.Decode(tx.From)
+	_, err := peer.Decode(from)
 	if err != nil {
-		return fmt.Errorf("invalid From peer ID: %v", err)
+		return nil, fmt.Errorf("invalid From peer ID: %v", err)
 	}
 
-	_, err = peer.Decode(tx.To)
+	_, err = peer.Decode(to)
 	if err != nil {
-		return fmt.Errorf("invalid To peer ID: %v", err)
+		return nil, fmt.Errorf("invalid To peer ID: %v", err)
 	}
 
-	if tx.Comitted {
-		return fmt.Errorf("New transactions cannot be commited")
+	tx := models.Tx{
+		SequenceNum: n.nextSequenceNum,
+		From:        from,
+		To:          to,
+		Amount:      amount,
 	}
+	n.nextSequenceNum++
 
-	err = n.fetchVerifications(tx)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return &tx, nil
 }
 
 func CommitTx(tx *models.Tx) {
