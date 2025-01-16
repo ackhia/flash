@@ -14,15 +14,16 @@ const verifyTxProtocol = "/flash/verify-transaction/1.0.0"
 
 type Node struct {
 	host            host.Host
-	txDb            []models.Tx
 	nextSequenceNum int
 	privKey         crypto.PrivKey
+	Txs             map[string][]models.Tx
 }
 
-func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, host host.Host) {
+func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis []models.GenesisPeer, host host.Host) {
 	log.Print("Node starting")
 
 	n.privKey = privKey
+	n.Txs = make(map[string][]models.Tx)
 
 	if host == nil {
 		n.host, _ = libp2p.New(libp2p.Identity(privKey))

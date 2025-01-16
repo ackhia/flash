@@ -14,7 +14,12 @@ import (
 func (n Node) startTransactionServer() {
 	n.host.SetStreamHandler("/flash/transactions/1.0.0", func(s network.Stream) {
 		defer s.Close()
-		s.Write([]byte("[{\"id\":1,\"amount\":100},{\"id\":2,\"amount\":200}]"))
+		data, err := json.Marshal(n.Txs)
+		if err != nil {
+			log.Printf("could not marshal transactions")
+			return
+		}
+		s.Write(data)
 	})
 
 	select {}
@@ -64,6 +69,9 @@ func (n Node) startVerificationServer() {
 			log.Printf("Could not sign tx %v", err)
 			return
 		}
+
+		tx.Comitted = false
+		n.Txs[tx.From] = append(n.Txs[tx.From], tx)
 
 		err = transport.SendBytes(sig, s)
 		if err != nil {

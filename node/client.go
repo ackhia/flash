@@ -23,10 +23,8 @@ func (n Node) getTransactions(addrInfo string) {
 		log.Fatalf("Invalid address %s %v", addrInfo, err)
 	}
 
-	// Connect to the server
 	n.host.Connect(context.Background(), *serverAddr)
 
-	// Open a stream to the server using the transactions protocol
 	stream, err := n.host.NewStream(context.Background(), serverAddr.ID, protocol.ID("/flash/transactions/1.0.0"))
 
 	if err != nil {
@@ -34,14 +32,18 @@ func (n Node) getTransactions(addrInfo string) {
 		return
 	}
 
-	// Read the data from the stream
 	data, _ := io.ReadAll(stream)
-	fmt.Println("Transactions:", string(data))
+
+	txs := make(map[string][]models.Tx)
+	if err = json.Unmarshal(data, &txs); err != nil {
+		log.Print("Could not unmarshal transactions")
+		return
+	}
 
 	stream.Close()
 }
 
-func (n Node) verifyTx(tx *models.Tx) error {
+func (n Node) fetchVerifications(tx *models.Tx) error {
 	peers := n.host.Peerstore().Peers()
 
 	for _, p := range peers {
@@ -112,10 +114,12 @@ func (n Node) getNodeVerification(tx *models.Tx, p peer.ID) error {
 
 	tx.Verifiers = append(tx.Verifiers, verifier)
 
+	n.Txs[n.host.ID().String()] = append(n.Txs[n.host.ID().String()], *tx)
+
 	return nil
 }
 
-func (n Node) SendTx(tx *models.Tx) error {
+func (n Node) VerifyTx(tx *models.Tx) error {
 	if tx.Amount <= 0 {
 		return errors.New("amount must be > 0")
 	}
@@ -130,10 +134,18 @@ func (n Node) SendTx(tx *models.Tx) error {
 		return fmt.Errorf("invalid To peer ID: %v", err)
 	}
 
-	err = n.verifyTx(tx)
+	if tx.Comitted {
+		return fmt.Errorf("New transactions cannot be commited")
+	}
+
+	err = n.fetchVerifications(tx)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func CommitTx(tx *models.Tx) {
+	//Check verifiers and set Commited to true
 }
