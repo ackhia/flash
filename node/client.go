@@ -16,11 +16,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
-func (n Node) getTransactions(addrInfo string) {
+func (n Node) getTransactions(addrInfo string) (map[string][]models.Tx, error) {
 	serverAddr, err := peer.AddrInfoFromString(addrInfo)
 
 	if err != nil {
-		log.Fatalf("Invalid address %s %v", addrInfo, err)
+		return nil, fmt.Errorf("invalid address %s %v", addrInfo, err)
 	}
 
 	n.host.Connect(context.Background(), *serverAddr)
@@ -28,19 +28,19 @@ func (n Node) getTransactions(addrInfo string) {
 	stream, err := n.host.NewStream(context.Background(), serverAddr.ID, protocol.ID("/flash/transactions/1.0.0"))
 
 	if err != nil {
-		log.Printf("Could not create stream %v", err)
-		return
+		return nil, fmt.Errorf("could not create stream %v", err)
 	}
+
+	defer stream.Close()
 
 	data, _ := io.ReadAll(stream)
 
 	txs := make(map[string][]models.Tx)
 	if err = json.Unmarshal(data, &txs); err != nil {
-		log.Print("Could not unmarshal transactions")
-		return
+		return nil, fmt.Errorf("could not unmarshal transactions")
 	}
 
-	stream.Close()
+	return txs, nil
 }
 
 func (n Node) fetchVerifications(tx *models.Tx) error {
@@ -129,7 +129,7 @@ func (n Node) VerifyTx(tx *models.Tx) error {
 	return nil
 }
 
-func (n Node) BuildTx(from string, to string, amount float64) (*models.Tx, error) {
+func (n *Node) BuildTx(from string, to string, amount float64) (*models.Tx, error) {
 
 	if amount <= 0 {
 		return nil, errors.New("amount must be > 0")

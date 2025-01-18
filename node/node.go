@@ -34,7 +34,14 @@ func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis []m
 	go n.startTransactionServer()
 	go n.startVerificationServer()
 
-	for _, item := range bootstraoPeers {
-		n.getTransactions(item)
+	for _, peer := range bootstraoPeers {
+		txs, err := n.getTransactions(peer)
+
+		if err != nil {
+			log.Printf("Could not get transactions from %s %v", peer, err)
+			continue
+		}
+
+		n.Txs = n.mergeTxs(n.Txs, txs)
 	}
 }
