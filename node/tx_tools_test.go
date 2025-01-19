@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ackhia/flash/models"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMergeTxs(t *testing.T) {
@@ -102,4 +103,94 @@ func TestMergeTxs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCalcBalances_ValidTransactions(t *testing.T) {
+	node := &Node{
+		genesis: map[string]float64{"Alice": 100.0, "Bob": 50.0},
+		Txs: map[string][]models.Tx{
+			"Tx1": {
+				{SequenceNum: 0, From: "Alice", To: "Bob", Amount: 30.0},
+				{SequenceNum: 1, From: "Bob", To: "Alice", Amount: 20.0},
+			},
+		},
+		balances: map[string]float64{},
+	}
+
+	err := node.calcBalances()
+	assert.NoError(t, err, "calcBalances should not return an error")
+
+	expectedBalances := map[string]float64{
+		"Alice": 90.0,
+		"Bob":   60.0,
+	}
+	assert.Equal(t, expectedBalances, node.balances, "balances should match expected values")
+}
+
+func TestCalcBalances_InvalidSequence(t *testing.T) {
+	node := &Node{
+		genesis: map[string]float64{"Alice": 100.0},
+		Txs: map[string][]models.Tx{
+			"Tx1": {
+				{SequenceNum: 0, From: "Alice", To: "Bob", Amount: 30.0},
+				{SequenceNum: 2, From: "Bob", To: "Alice", Amount: 20.0}, // Invalid sequence
+			},
+		},
+		balances: map[string]float64{},
+	}
+
+	err := node.calcBalances()
+	assert.Error(t, err, "calcBalances should return an error for invalid sequence")
+	assert.Equal(t, "transactions must be ordered by sequence number", err.Error())
+}
+
+func TestCalcBalances_NegativeBalances(t *testing.T) {
+	node := &Node{
+		genesis: map[string]float64{"Alice": 100.0},
+		Txs: map[string][]models.Tx{
+			"Tx1": {
+				{SequenceNum: 0, From: "Alice", To: "Bob", Amount: 120.0}, // Alice would have a negative balance
+			},
+		},
+		balances: map[string]float64{},
+	}
+
+	err := node.calcBalances()
+	assert.Error(t, err, "calcBalances should return an error for negative balances")
+	assert.Equal(t, "negative balances not allowed", err.Error())
+}
+
+func TestCalcBalances_EmptyGenesisAndTransactions(t *testing.T) {
+	node := &Node{
+		genesis:  map[string]float64{},
+		Txs:      map[string][]models.Tx{},
+		balances: map[string]float64{},
+	}
+
+	err := node.calcBalances()
+	assert.NoError(t, err, "calcBalances should not return an error for empty genesis and transactions")
+
+	expectedBalances := map[string]float64{}
+	assert.Equal(t, expectedBalances, node.balances, "balances should be empty when genesis and transactions are empty")
+}
+
+func TestCalcBalances_NewAccountsFromTransactions(t *testing.T) {
+	node := &Node{
+		genesis: map[string]float64{"Alice": 50.0},
+		Txs: map[string][]models.Tx{
+			"Tx1": {
+				{SequenceNum: 0, From: "Alice", To: "Charlie", Amount: 20.0}, // "Charlie" is a new account
+			},
+		},
+		balances: map[string]float64{},
+	}
+
+	err := node.calcBalances()
+	assert.NoError(t, err, "calcBalances should not return an error for new accounts introduced by transactions")
+
+	expectedBalances := map[string]float64{
+		"Alice":   30.0,
+		"Charlie": 20.0,
+	}
+	assert.Equal(t, expectedBalances, node.balances, "balances should include new accounts from transactions")
 }

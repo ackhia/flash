@@ -1,7 +1,5 @@
 package models
 
-import "github.com/libp2p/go-libp2p/core/peer"
-
 type Verifier struct {
 	ID  string `json:"id"`
 	Sig []byte `json:"sig"`
@@ -15,9 +13,4 @@ type Tx struct {
 	Sig         []byte     `json:"sig"`
 	Verifiers   []Verifier `json:"verifiers"`
 	Comitted    bool       `json:"-"`
-}
-
-type GenesisPeer struct {
-	PeerID  peer.ID
-	Balance float64
 }

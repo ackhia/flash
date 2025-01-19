@@ -17,12 +17,15 @@ type Node struct {
 	nextSequenceNum int
 	privKey         crypto.PrivKey
 	Txs             map[string][]models.Tx
+	genesis         map[string]float64
+	balances        map[string]float64
 }
 
-func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis []models.GenesisPeer, host host.Host) {
+func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis map[string]float64, host host.Host) {
 	log.Print("Node starting")
 
 	n.privKey = privKey
+	n.genesis = genesis
 	n.Txs = make(map[string][]models.Tx)
 
 	if host == nil {

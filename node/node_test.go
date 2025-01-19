@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ackhia/flash/crypto"
-	"github.com/ackhia/flash/models"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
@@ -31,17 +30,9 @@ func createNetwork(t *testing.T) (Node, Node) {
 		panic(err)
 	}
 
-	var genesis []models.GenesisPeer
-
-	genesis = append(genesis, models.GenesisPeer{
-		PeerID:  clientHost.ID(),
-		Balance: 1000,
-	})
-
-	genesis = append(genesis, models.GenesisPeer{
-		PeerID:  serverHost.ID(),
-		Balance: 0,
-	})
+	genesis := make(map[string]float64)
+	genesis[clientHost.ID().String()] = 1000
+	genesis[serverHost.ID().String()] = 0
 
 	privKey := serverHost.Peerstore().PrivKey(serverHost.ID())
 	serverNode.Init(privKey, []string{}, genesis, serverHost)
