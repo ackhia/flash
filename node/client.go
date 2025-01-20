@@ -93,7 +93,7 @@ func (n Node) getNodeVerification(tx *models.Tx, p peer.ID) error {
 	log.Print("Verification request sent")
 
 	data, err := transport.ReceiveBytes(stream)
-	if err != nil {
+	if err != nil || len(data) == 0 {
 		return fmt.Errorf("failed to receive response: %v", err)
 	}
 
@@ -125,6 +125,18 @@ func (n Node) VerifyTx(tx *models.Tx) error {
 	}
 
 	n.Txs[n.host.ID().String()] = append(n.Txs[n.host.ID().String()], *tx)
+
+	var verifierTotalBalance float64
+	for _, v := range tx.Verifiers {
+		b, ok := n.balances[v.ID]
+		if ok {
+			verifierTotalBalance += b
+		}
+	}
+
+	if verifierTotalBalance <= n.TotalCoins/2 {
+		return fmt.Errorf("verifier total balances was less thsn 50%% of available coins")
+	}
 
 	return nil
 }

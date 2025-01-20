@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createNetwork(t *testing.T) (Node, Node) {
+func createNetwork(t *testing.T, clientBalance float64, serverBalance float64) (Node, Node) {
 	mn := mocknet.New()
 
 	serverNode, clientNode := Node{}, Node{}
@@ -31,8 +31,8 @@ func createNetwork(t *testing.T) (Node, Node) {
 	}
 
 	genesis := make(map[string]float64)
-	genesis[clientHost.ID().String()] = 1000
-	genesis[serverHost.ID().String()] = 0
+	genesis[clientHost.ID().String()] = clientBalance
+	genesis[serverHost.ID().String()] = serverBalance
 
 	privKey := serverHost.Peerstore().PrivKey(serverHost.ID())
 	serverNode.Init(privKey, []string{}, genesis, serverHost)
@@ -59,8 +59,8 @@ func createMultiaddress(t *testing.T, serverNode Node) string {
 	return serverMultiAddr
 }
 
-func TestVerifyTx(t *testing.T) {
-	server, client := createNetwork(t)
+func TestVerifyTx_NormalTx(t *testing.T) {
+	server, client := createNetwork(t, 1000, 3000)
 
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
@@ -116,4 +116,51 @@ func TestVerifyTx(t *testing.T) {
 
 	assert.False(t, clientTx.Comitted)
 	assert.False(t, serverTx.Comitted)
+}
+
+func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {
+	server, client := createNetwork(t, 1000, 3000)
+
+	tx, err := client.BuildTx(client.host.ID().String(),
+		server.host.ID().String(),
+		2000)
+
+	if err != nil {
+		t.Fatalf("Could not build tx: %v", err)
+	}
+
+	err = crypto.SignTx(tx, client.privKey)
+	if err != nil {
+		t.Fatalf("Could not sign tx: %v", err)
+	}
+
+	err = client.VerifyTx(tx)
+
+	assert.Error(t, err)
+}
+
+func TestVerifyTx_VerifierBalanceTooLow(t *testing.T) {
+	server, client := createNetwork(t, 1000, 500)
+
+	tx, err := client.BuildTx(client.host.ID().String(),
+		server.host.ID().String(),
+		100)
+
+	if err != nil {
+		t.Fatalf("Could not build tx: %v", err)
+	}
+
+	err = crypto.SignTx(tx, client.privKey)
+	if err != nil {
+		t.Fatalf("Could not sign tx: %v", err)
+	}
+
+	err = client.VerifyTx(tx)
+
+	assert.Error(t, err)
+}
+
+func TestCalcTotalCoins(t *testing.T) {
+	server, _ := createNetwork(t, 1000, 3000)
+	assert.Equal(t, server.TotalCoins, float64(4000))
 }

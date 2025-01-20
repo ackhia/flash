@@ -45,10 +45,15 @@ func (n Node) startVerificationServer() {
 			return
 		}
 
-		//TODO: Check balance
+		bal, ok := n.balances[tx.From]
+		if !ok || bal < tx.Amount {
+			log.Printf("Balance too low for %s", tx.From)
+			return
+		}
 
 		if len(n.Txs[tx.From]) != tx.SequenceNum {
 			log.Printf("Invalid sequence number %d", tx.SequenceNum)
+			return
 		}
 
 		if tx.Amount <= 0 {

@@ -19,6 +19,7 @@ type Node struct {
 	Txs             map[string][]models.Tx
 	genesis         map[string]float64
 	balances        map[string]float64
+	TotalCoins      float64
 }
 
 func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis map[string]float64, host host.Host) {
@@ -27,6 +28,7 @@ func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis map
 	n.privKey = privKey
 	n.genesis = genesis
 	n.Txs = make(map[string][]models.Tx)
+	n.balances = make(map[string]float64)
 
 	if host == nil {
 		n.host, _ = libp2p.New(libp2p.Identity(privKey))
@@ -47,4 +49,16 @@ func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis map
 
 		n.Txs = n.mergeTxs(n.Txs, txs)
 	}
+
+	n.calcBalances()
+	n.TotalCoins = n.calcTotalCoins()
+}
+
+func (n Node) calcTotalCoins() float64 {
+	var total float64
+	for _, v := range n.genesis {
+		total += v
+	}
+
+	return total
 }
