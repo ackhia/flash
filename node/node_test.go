@@ -5,7 +5,8 @@ import (
 	"log"
 	"testing"
 
-	"github.com/ackhia/flash/crypto"
+	fcrypto "github.com/ackhia/flash/crypto"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
@@ -62,15 +63,22 @@ func createMultiaddress(t *testing.T, serverNode Node) string {
 func TestVerifyTx_NormalTx(t *testing.T) {
 	server, client := createNetwork(t, 1000, 3000)
 
+	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
+	if err != nil {
+		t.Fatal("Could not get public key")
+	}
+
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
-		20)
+		20,
+		pubKeyBytes,
+	)
 
 	if err != nil {
 		t.Fatalf("Could not build tx: %v", err)
 	}
 
-	err = crypto.SignTx(tx, client.privKey)
+	err = fcrypto.SignTx(tx, client.privKey)
 	if err != nil {
 		t.Fatalf("Could not sign tx: %v", err)
 	}
@@ -84,7 +92,7 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 		t.Fatal("Verification not found")
 	}
 
-	r, err := crypto.VerifyVerifier(&tx.Verifiers[0], tx, server.privKey.GetPublic(), server.host.ID())
+	r, err := fcrypto.VerifyVerifier(&tx.Verifiers[0], tx, server.privKey.GetPublic(), server.host.ID())
 
 	if err != nil {
 		t.Fatalf("VerifyVerifier failed with error %v", err)
@@ -121,15 +129,21 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {
 	server, client := createNetwork(t, 1000, 3000)
 
+	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
+	if err != nil {
+		t.Fatal("Could not get public key")
+	}
+
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
-		2000)
+		2000,
+		pubKeyBytes)
 
 	if err != nil {
 		t.Fatalf("Could not build tx: %v", err)
 	}
 
-	err = crypto.SignTx(tx, client.privKey)
+	err = fcrypto.SignTx(tx, client.privKey)
 	if err != nil {
 		t.Fatalf("Could not sign tx: %v", err)
 	}
@@ -142,15 +156,21 @@ func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {
 func TestVerifyTx_VerifierBalanceTooLow(t *testing.T) {
 	server, client := createNetwork(t, 1000, 500)
 
+	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
+	if err != nil {
+		t.Fatal("Could not get public key")
+	}
+
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
-		100)
+		100,
+		pubKeyBytes)
 
 	if err != nil {
 		t.Fatalf("Could not build tx: %v", err)
 	}
 
-	err = crypto.SignTx(tx, client.privKey)
+	err = fcrypto.SignTx(tx, client.privKey)
 	if err != nil {
 		t.Fatalf("Could not sign tx: %v", err)
 	}

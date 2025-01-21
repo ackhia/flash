@@ -141,7 +141,7 @@ func (n Node) VerifyTx(tx *models.Tx) error {
 	return nil
 }
 
-func (n *Node) BuildTx(from string, to string, amount float64) (*models.Tx, error) {
+func (n *Node) BuildTx(from string, to string, amount float64, pubKey []byte) (*models.Tx, error) {
 
 	if amount <= 0 {
 		return nil, errors.New("amount must be > 0")
@@ -162,6 +162,7 @@ func (n *Node) BuildTx(from string, to string, amount float64) (*models.Tx, erro
 		From:        from,
 		To:          to,
 		Amount:      amount,
+		Pubkey:      pubKey,
 	}
 	n.nextSequenceNum++
 

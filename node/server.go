@@ -73,6 +73,17 @@ func (n Node) startVerificationServer() {
 			return
 		}
 
+		result, err := fcrypto.VerifyTxSig(tx)
+		if err != nil {
+			log.Printf("Could not verify tx sig %v", err)
+			return
+		}
+
+		if !result {
+			log.Print("Tx has invalid sig")
+			return
+		}
+
 		sig, err := fcrypto.CreateVerifyerSig(&tx, n.privKey)
 		if err != nil {
 			log.Printf("Could not sign tx %v", err)
@@ -85,6 +96,80 @@ func (n Node) startVerificationServer() {
 		err = transport.SendBytes(sig, s)
 		if err != nil {
 			log.Printf("Could not send bytes %v", err)
+		}
+	})
+
+	select {}
+}
+
+func (n Node) startCommitTxServer() {
+	n.host.SetStreamHandler(commitTxProtocol, func(s network.Stream) {
+
+		defer s.Close()
+
+		log.Print("Client connected to commit server")
+
+		data, err := transport.ReceiveBytes(s)
+		if err != nil {
+			log.Printf("Could not read tx %v", err)
+			return
+		}
+		log.Print("Received commit request")
+
+		var tx models.Tx
+		err = json.Unmarshal(data, &tx)
+		if err != nil {
+			log.Printf("Could not unmarshall tx %v", err)
+			return
+		}
+
+		bal, ok := n.balances[tx.From]
+		if !ok || bal < tx.Amount {
+			log.Printf("Balance too low for %s", tx.From)
+			return
+		}
+
+		if tx.Amount <= 0 {
+			return
+		}
+
+		var highestCommitedSequenceNum int
+		for _, t := range n.Txs[tx.From] {
+			if t.Comitted {
+				if highestCommitedSequenceNum < t.SequenceNum {
+					highestCommitedSequenceNum = t.SequenceNum
+				}
+			}
+
+		}
+
+		if highestCommitedSequenceNum+1 != tx.SequenceNum {
+			log.Printf("Invalid sequence number %d", tx.SequenceNum)
+			return
+		}
+
+		_, err = peer.Decode(tx.From)
+		if err != nil {
+			log.Printf("Invalid From peer ID: %v", err)
+
+			return
+		}
+
+		_, err = peer.Decode(tx.To)
+		if err != nil {
+			log.Printf("Invalid To peer ID: %v", err)
+			return
+		}
+
+		result, err := fcrypto.VerifyTxSig(tx)
+		if err != nil {
+			log.Printf("Could not verify tx sig %v", err)
+			return
+		}
+
+		if !result {
+			log.Print("Tx has invalid sig")
+			return
 		}
 	})
 

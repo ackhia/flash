@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ackhia/flash/models"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
@@ -31,13 +32,19 @@ func TestReadWriteKeyFile(t *testing.T) {
 }
 
 func TestSignVerify(t *testing.T) {
-	privSender, _ := CreateKeyPair()
+	privSender, pubSender := CreateKeyPair()
 	privVerifier, pubVerifier := CreateKeyPair()
+
+	pubKeyBytes, err := crypto.MarshalPublicKey(pubSender)
+	if err != nil {
+		t.Fatal("Could not get public key")
+	}
 
 	tx := models.Tx{
 		From:   "Me",
 		To:     "You",
 		Amount: 25,
+		Pubkey: pubKeyBytes,
 	}
 
 	if SignTx(&tx, privSender) != nil {
@@ -46,6 +53,16 @@ func TestSignVerify(t *testing.T) {
 
 	if len(tx.Sig) == 0 {
 		t.Fatal("No sig present")
+	}
+
+	result, err := VerifyTxSig(tx)
+
+	if err != nil {
+		t.Fatal("Could not verify sig")
+	}
+
+	if !result {
+		t.Fatal("Sig verify failed")
 	}
 
 	sig, err := CreateVerifyerSig(&tx, privVerifier)

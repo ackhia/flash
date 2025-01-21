@@ -115,14 +115,14 @@ func ReadKeyfile(filename string) (crypto.PrivKey, crypto.PubKey, error) {
 }
 
 func hashTx(tx *models.Tx) []byte {
-	data := fmt.Sprintf("%d%s%s%f", tx.SequenceNum, tx.From, tx.To, tx.Amount)
+	data := fmt.Sprintf("%d%s%s%f%X", tx.SequenceNum, tx.From, tx.To, tx.Amount, tx.Pubkey)
 	hash := sha256.Sum256([]byte(data))
 
 	return hash[:]
 }
 
 func hashTxWithSig(tx *models.Tx) []byte {
-	data := fmt.Sprintf("%d%s%s%f%x", tx.SequenceNum, tx.From, tx.To, tx.Amount, tx.Sig)
+	data := fmt.Sprintf("%d%s%s%f%x%x", tx.SequenceNum, tx.From, tx.To, tx.Amount, tx.Sig, tx.Pubkey)
 	hash := sha256.Sum256([]byte(data))
 
 	return hash[:]
@@ -138,6 +138,25 @@ func SignTx(tx *models.Tx, privKey crypto.PrivKey) error {
 	}
 
 	return nil
+}
+
+func VerifyTxSig(tx models.Tx) (bool, error) {
+	//TODO: Check the from is derived from the pubkey
+
+	hash := hashTx(&tx)
+
+	pubKey, err := crypto.UnmarshalPublicKey(tx.Pubkey)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal public key: %v", err)
+	}
+
+	result, err := pubKey.Verify(hash, tx.Sig)
+
+	if err != nil {
+		return false, err
+	}
+
+	return result, nil
 }
 
 func VerifyVerifier(verifier *models.Verifier, tx *models.Tx, pubKey crypto.PubKey, p peer.ID) (bool, error) {

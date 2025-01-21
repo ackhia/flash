@@ -11,6 +11,7 @@ import (
 )
 
 const verifyTxProtocol = "/flash/verify-transaction/1.0.0"
+const commitTxProtocol = "/flash/commit-transaction/1.0.0"
 
 type Node struct {
 	host            host.Host
