@@ -31,7 +31,7 @@ func (n Node) mergeTxs(tx1, tx2 map[string][]models.Tx) map[string][]models.Tx {
 
 func (n *Node) calcBalances() error {
 	for p, b := range n.genesis {
-		n.balances[p] = b
+		n.Balances[p] = b
 	}
 
 	for _, txs := range n.Txs {
@@ -40,17 +40,17 @@ func (n *Node) calcBalances() error {
 				return fmt.Errorf("transactions must be ordered by sequence number")
 			}
 
-			if _, ok := n.balances[txs[i].From]; !ok {
-				n.balances[txs[i].From] = 0
+			if _, ok := n.Balances[txs[i].From]; !ok {
+				n.Balances[txs[i].From] = 0
 			}
 
-			if _, ok := n.balances[txs[i].To]; !ok {
-				n.balances[txs[i].To] = 0
+			if _, ok := n.Balances[txs[i].To]; !ok {
+				n.Balances[txs[i].To] = 0
 			}
 
-			n.balances[txs[i].From] -= txs[i].Amount
-			n.balances[txs[i].To] += txs[i].Amount
-			if n.balances[txs[i].From] < 0 {
+			n.Balances[txs[i].From] -= txs[i].Amount
+			n.Balances[txs[i].To] += txs[i].Amount
+			if n.Balances[txs[i].From] < 0 {
 				return fmt.Errorf("negative balances not allowed")
 			}
 		}

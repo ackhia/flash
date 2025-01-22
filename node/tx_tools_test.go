@@ -114,7 +114,7 @@ func TestCalcBalances_ValidTransactions(t *testing.T) {
 				{SequenceNum: 1, From: "Bob", To: "Alice", Amount: 20.0},
 			},
 		},
-		balances: map[string]float64{},
+		Balances: map[string]float64{},
 	}
 
 	err := node.calcBalances()
@@ -124,7 +124,7 @@ func TestCalcBalances_ValidTransactions(t *testing.T) {
 		"Alice": 90.0,
 		"Bob":   60.0,
 	}
-	assert.Equal(t, expectedBalances, node.balances, "balances should match expected values")
+	assert.Equal(t, expectedBalances, node.Balances, "balances should match expected values")
 }
 
 func TestCalcBalances_InvalidSequence(t *testing.T) {
@@ -136,7 +136,7 @@ func TestCalcBalances_InvalidSequence(t *testing.T) {
 				{SequenceNum: 2, From: "Bob", To: "Alice", Amount: 20.0}, // Invalid sequence
 			},
 		},
-		balances: map[string]float64{},
+		Balances: map[string]float64{},
 	}
 
 	err := node.calcBalances()
@@ -152,7 +152,7 @@ func TestCalcBalances_NegativeBalances(t *testing.T) {
 				{SequenceNum: 0, From: "Alice", To: "Bob", Amount: 120.0}, // Alice would have a negative balance
 			},
 		},
-		balances: map[string]float64{},
+		Balances: map[string]float64{},
 	}
 
 	err := node.calcBalances()
@@ -164,14 +164,14 @@ func TestCalcBalances_EmptyGenesisAndTransactions(t *testing.T) {
 	node := &Node{
 		genesis:  map[string]float64{},
 		Txs:      map[string][]models.Tx{},
-		balances: map[string]float64{},
+		Balances: map[string]float64{},
 	}
 
 	err := node.calcBalances()
 	assert.NoError(t, err, "calcBalances should not return an error for empty genesis and transactions")
 
 	expectedBalances := map[string]float64{}
-	assert.Equal(t, expectedBalances, node.balances, "balances should be empty when genesis and transactions are empty")
+	assert.Equal(t, expectedBalances, node.Balances, "balances should be empty when genesis and transactions are empty")
 }
 
 func TestCalcBalances_NewAccountsFromTransactions(t *testing.T) {
@@ -182,7 +182,7 @@ func TestCalcBalances_NewAccountsFromTransactions(t *testing.T) {
 				{SequenceNum: 0, From: "Alice", To: "Charlie", Amount: 20.0}, // "Charlie" is a new account
 			},
 		},
-		balances: map[string]float64{},
+		Balances: map[string]float64{},
 	}
 
 	err := node.calcBalances()
@@ -192,5 +192,5 @@ func TestCalcBalances_NewAccountsFromTransactions(t *testing.T) {
 		"Alice":   30.0,
 		"Charlie": 20.0,
 	}
-	assert.Equal(t, expectedBalances, node.balances, "balances should include new accounts from transactions")
+	assert.Equal(t, expectedBalances, node.Balances, "balances should include new accounts from transactions")
 }

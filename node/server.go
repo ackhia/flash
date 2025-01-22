@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 
@@ -45,7 +46,7 @@ func (n Node) startVerificationServer() {
 			return
 		}
 
-		bal, ok := n.balances[tx.From]
+		bal, ok := n.Balances[tx.From]
 		if !ok || bal < tx.Amount {
 			log.Printf("Balance too low for %s", tx.From)
 			return
@@ -123,54 +124,63 @@ func (n Node) startCommitTxServer() {
 			return
 		}
 
-		bal, ok := n.balances[tx.From]
-		if !ok || bal < tx.Amount {
-			log.Printf("Balance too low for %s", tx.From)
+		var localTx *models.Tx
+		for i := range n.Txs[tx.From] {
+			t := &n.Txs[tx.From][i]
+			if bytes.Compare(t.Sig, tx.Sig) == 0 {
+				localTx = t
+				break
+			}
+		}
+
+		if localTx == nil {
+			log.Print("Could not find local tx")
 			return
 		}
 
-		if tx.Amount <= 0 {
+		if localTx.Amount != tx.Amount ||
+			localTx.From != tx.From ||
+			bytes.Compare(localTx.Pubkey, tx.Pubkey) != 0 ||
+			localTx.To != tx.To ||
+			bytes.Compare(localTx.Sig, tx.Sig) != 0 ||
+			localTx.Comitted ||
+			tx.Comitted ||
+			localTx.SequenceNum != tx.SequenceNum {
+			log.Print("tx dose not match database")
 			return
 		}
 
-		var highestCommitedSequenceNum int
-		for _, t := range n.Txs[tx.From] {
-			if t.Comitted {
-				if highestCommitedSequenceNum < t.SequenceNum {
-					highestCommitedSequenceNum = t.SequenceNum
-				}
+		for _, v := range tx.Verifiers {
+			peerID, err := peer.Decode(v.ID)
+			if err != nil {
+				log.Printf("Error decoding Peer ID %v", err)
+				return
 			}
 
+			result, err := fcrypto.VerifyVerifier(&v, &tx, n.host.Network().Peerstore().PubKey(peerID), peerID)
+
+			if err != nil {
+				log.Printf("Verifier not valid %v", err)
+				return
+			}
+
+			if !result {
+				log.Printf("Verifier not valid")
+				return
+			}
 		}
 
-		if highestCommitedSequenceNum+1 != tx.SequenceNum {
-			log.Printf("Invalid sequence number %d", tx.SequenceNum)
-			return
-		}
-
-		_, err = peer.Decode(tx.From)
+		_, err = n.isVerifierConsensus(&tx)
 		if err != nil {
-			log.Printf("Invalid From peer ID: %v", err)
-
+			log.Print("Consensus could not be reached")
 			return
 		}
 
-		_, err = peer.Decode(tx.To)
-		if err != nil {
-			log.Printf("Invalid To peer ID: %v", err)
-			return
-		}
+		localTx.Verifiers = tx.Verifiers
+		localTx.Comitted = true
+		n.calcBalances()
 
-		result, err := fcrypto.VerifyTxSig(tx)
-		if err != nil {
-			log.Printf("Could not verify tx sig %v", err)
-			return
-		}
-
-		if !result {
-			log.Print("Tx has invalid sig")
-			return
-		}
+		transport.SendBytes([]byte("ok"), s)
 	})
 
 	select {}

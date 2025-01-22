@@ -19,7 +19,7 @@ type Node struct {
 	privKey         crypto.PrivKey
 	Txs             map[string][]models.Tx
 	genesis         map[string]float64
-	balances        map[string]float64
+	Balances        map[string]float64
 	TotalCoins      float64
 }
 
@@ -29,7 +29,7 @@ func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis map
 	n.privKey = privKey
 	n.genesis = genesis
 	n.Txs = make(map[string][]models.Tx)
-	n.balances = make(map[string]float64)
+	n.Balances = make(map[string]float64)
 
 	if host == nil {
 		n.host, _ = libp2p.New(libp2p.Identity(privKey))
@@ -39,6 +39,7 @@ func (n *Node) Init(privKey crypto.PrivKey, bootstraoPeers []string, genesis map
 
 	go n.startTransactionServer()
 	go n.startVerificationServer()
+	go n.startCommitTxServer()
 
 	for _, peer := range bootstraoPeers {
 		txs, err := n.getTransactions(peer)

@@ -111,8 +111,8 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 		t.Fatal("Tx not in client")
 	}
 
-	clientTx := client.Txs[client.host.ID().String()][0]
-	serverTx := server.Txs[client.host.ID().String()][0]
+	clientTx := &client.Txs[client.host.ID().String()][0]
+	serverTx := &server.Txs[client.host.ID().String()][0]
 
 	if !bytes.Equal(clientTx.Sig, tx.Sig) {
 		t.Fatal("Invlid client tx")
@@ -124,6 +124,22 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 
 	assert.False(t, clientTx.Comitted)
 	assert.False(t, serverTx.Comitted)
+
+	assert.Equal(t, float64(1000), client.Balances[clientTx.From])
+	assert.Equal(t, float64(3000), client.Balances[clientTx.To])
+
+	client.CommitTx(tx)
+
+	assert.True(t, clientTx.Comitted)
+	assert.True(t, serverTx.Comitted)
+
+	assert.Equal(t, float64(1000-20), client.Balances[clientTx.From])
+	assert.Equal(t, float64(3000+20), client.Balances[clientTx.To])
+
+	assert.Equal(t, len(client.Txs[tx.From]), 1)
+	assert.Equal(t, len(client.Txs[tx.To]), 0)
+	assert.Equal(t, len(server.Txs[tx.From]), 1)
+	assert.Equal(t, len(server.Txs[tx.To]), 0)
 }
 
 func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {

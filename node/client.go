@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -126,16 +127,9 @@ func (n Node) VerifyTx(tx *models.Tx) error {
 
 	n.Txs[n.host.ID().String()] = append(n.Txs[n.host.ID().String()], *tx)
 
-	var verifierTotalBalance float64
-	for _, v := range tx.Verifiers {
-		b, ok := n.balances[v.ID]
-		if ok {
-			verifierTotalBalance += b
-		}
-	}
-
-	if verifierTotalBalance <= n.TotalCoins/2 {
-		return fmt.Errorf("verifier total balances was less thsn 50%% of available coins")
+	_, err = n.isVerifierConsensus(tx)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -169,6 +163,80 @@ func (n *Node) BuildTx(from string, to string, amount float64, pubKey []byte) (*
 	return &tx, nil
 }
 
-func CommitTx(tx *models.Tx) {
-	//Check verifiers and set Commited to true
+func (n Node) CommitTx(tx *models.Tx) {
+
+	peers := n.host.Peerstore().Peers()
+
+	for _, p := range peers {
+
+		//Don't connect to myself
+		if p == n.host.ID() {
+			continue
+		}
+
+		err := n.sendPeerCommit(tx, p)
+		if err != nil {
+			log.Printf("Error sending commit tx to peer %s: %v", p, err)
+		} else {
+			fmt.Printf("Commit message sent to peer %s\n", p)
+		}
+	}
+
+	tx.Comitted = true
+	n.calcBalances()
+}
+
+func (n Node) sendPeerCommit(tx *models.Tx, p peer.ID) error {
+	log.Printf("Connecting to %s", p)
+
+	protocolID := protocol.ID(commitTxProtocol)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stream, err := n.host.NewStream(ctx, p, protocolID)
+	if err != nil {
+		return fmt.Errorf("failed to open stream: %v", err)
+	}
+
+	defer stream.Close()
+
+	msg, err := json.Marshal(tx)
+	if err != nil {
+		return fmt.Errorf("error marshalling struct to JSON: %v", err)
+	}
+
+	log.Print("Sending verification request")
+
+	err = transport.SendBytes(msg, stream)
+	if err != nil {
+		return fmt.Errorf("failed to write message: %v", err)
+	}
+
+	log.Print("Verification request sent")
+
+	data, err := transport.ReceiveBytes(stream)
+	if err != nil || len(data) == 0 {
+		return fmt.Errorf("failed to receive response: %v", err)
+	}
+
+	if bytes.Compare(data, []byte("ok")) != 0 {
+		return fmt.Errorf("failed to commit tx")
+	}
+
+	var localTx *models.Tx
+	for i := range n.Txs[tx.From] {
+		t := &n.Txs[tx.From][i]
+		if bytes.Compare(t.Sig, tx.Sig) == 0 {
+			localTx = t
+			break
+		}
+	}
+
+	if localTx == nil {
+		return fmt.Errorf("Could not find local tx")
+	}
+
+	localTx.Comitted = true
+	return nil
 }
