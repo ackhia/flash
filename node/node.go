@@ -1,12 +1,14 @@
 package node
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 
+	fcrypto "github.com/ackhia/flash/crypto"
 	"github.com/ackhia/flash/models"
 )
 
@@ -63,4 +65,36 @@ func (n Node) calcTotalCoins() float64 {
 	}
 
 	return total
+}
+
+func (n *Node) Transfer(to string, amount float64) error {
+	pubKeyBytes, err := crypto.MarshalPublicKey(n.privKey.GetPublic())
+	if err != nil {
+		return err
+	}
+
+	tx, err := n.BuildTx(
+		n.host.ID().String(),
+		to,
+		amount,
+		pubKeyBytes,
+	)
+
+	if err != nil {
+		return fmt.Errorf("Could not build tx: %v", err)
+	}
+
+	err = fcrypto.SignTx(tx, n.privKey)
+	if err != nil {
+		return fmt.Errorf("Could not sign tx: %v", err)
+	}
+
+	err = n.VerifyTx(tx)
+	if err != nil {
+		return fmt.Errorf("Could not send tx: %v", err)
+	}
+
+	n.CommitTx(tx)
+
+	return nil
 }
