@@ -18,18 +18,13 @@ func createNetworkTwoPeers(t *testing.T, clientBalance float64, serverBalance fl
 	serverNode, clientNode := Node{}, Node{}
 
 	clientHost, err := mn.GenPeer()
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	serverHost, err := mn.GenPeer()
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
-	if err := mn.LinkAll(); err != nil {
-		panic(err)
-	}
+	err = mn.LinkAll()
+	assert.NoError(t, err)
 
 	genesis := make(map[string]float64)
 	genesis[clientHost.ID().String()] = clientBalance
@@ -54,23 +49,16 @@ func createNetworkThreePeers(t *testing.T, node1Balance float64, node2Balance fl
 	node1, node2, node3 := Node{}, Node{}, Node{}
 
 	node1tHost, err := mn.GenPeer()
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	node2Host, err := mn.GenPeer()
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
 	node3Host, err := mn.GenPeer()
-	if err != nil {
-		panic(err)
-	}
+	assert.NoError(t, err)
 
-	if err := mn.LinkAll(); err != nil {
-		panic(err)
-	}
+	err = mn.LinkAll()
+	assert.NoError(t, err)
 
 	genesis := make(map[string]float64)
 	genesis[node1tHost.ID().String()] = node1Balance
@@ -95,9 +83,7 @@ func createMultiaddress(t *testing.T, serverNode Node) string {
 	serverAddr := serverNode.host.Addrs()[0].String()
 
 	maddr, err := ma.NewMultiaddr(serverAddr)
-	if err != nil {
-		t.Fatalf("Failed to create Multiaddr: %v", err)
-	}
+	assert.NoError(t, err)
 
 	serverMultiAddr := maddr.String() + "/p2p/" + serverNode.host.ID().String()
 	return serverMultiAddr
@@ -107,9 +93,7 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1000, 3000)
 
 	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
-	if err != nil {
-		t.Fatal("Could not get public key")
-	}
+	assert.NoError(t, err)
 
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
@@ -117,19 +101,13 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 		pubKeyBytes,
 	)
 
-	if err != nil {
-		t.Fatalf("Could not build tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	err = fcrypto.SignTx(tx, client.privKey)
-	if err != nil {
-		t.Fatalf("Could not sign tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	err = client.VerifyTx(tx)
-	if err != nil {
-		t.Fatalf("Could not send tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	if len(tx.Verifiers) != 1 {
 		t.Fatal("Verification not found")
@@ -137,9 +115,7 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 
 	r, err := fcrypto.VerifyVerifier(&tx.Verifiers[0], tx, server.privKey.GetPublic(), server.host.ID())
 
-	if err != nil {
-		t.Fatalf("VerifyVerifier failed with error %v", err)
-	}
+	assert.NoError(t, err)
 
 	if !r {
 		t.Fatal("VerifyVerifier failed")
@@ -189,23 +165,17 @@ func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1000, 3000)
 
 	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
-	if err != nil {
-		t.Fatal("Could not get public key")
-	}
+	assert.NoError(t, err)
 
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
 		2000,
 		pubKeyBytes)
 
-	if err != nil {
-		t.Fatalf("Could not build tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	err = fcrypto.SignTx(tx, client.privKey)
-	if err != nil {
-		t.Fatalf("Could not sign tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	err = client.VerifyTx(tx)
 
@@ -216,23 +186,17 @@ func TestVerifyTx_VerifierBalanceTooLow(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1000, 500)
 
 	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
-	if err != nil {
-		t.Fatal("Could not get public key")
-	}
+	assert.NoError(t, err)
 
 	tx, err := client.BuildTx(client.host.ID().String(),
 		server.host.ID().String(),
 		100,
 		pubKeyBytes)
 
-	if err != nil {
-		t.Fatalf("Could not build tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	err = fcrypto.SignTx(tx, client.privKey)
-	if err != nil {
-		t.Fatalf("Could not sign tx: %v", err)
-	}
+	assert.NoError(t, err)
 
 	err = client.VerifyTx(tx)
 
@@ -381,4 +345,18 @@ func TestNodeSync(t *testing.T) {
 
 	assert.Equal(t, float64(470), newNode.Balances[clientNode.host.ID().String()])
 	assert.Equal(t, float64(1030), newNode.Balances[serverNode.host.ID().String()])
+
+	clientNode.Transfer(newNode.host.ID().String(), 20)
+
+	assert.Equal(t, float64(450), newNode.Balances[clientNode.host.ID().String()])
+	assert.Equal(t, float64(1030), newNode.Balances[serverNode.host.ID().String()])
+	assert.Equal(t, float64(20), newNode.Balances[newNode.host.ID().String()])
+
+	assert.Equal(t, float64(450), clientNode.Balances[clientNode.host.ID().String()])
+	assert.Equal(t, float64(1030), clientNode.Balances[serverNode.host.ID().String()])
+	assert.Equal(t, float64(20), clientNode.Balances[newNode.host.ID().String()])
+
+	assert.Equal(t, float64(450), serverNode.Balances[clientNode.host.ID().String()])
+	assert.Equal(t, float64(1030), serverNode.Balances[serverNode.host.ID().String()])
+	assert.Equal(t, float64(20), serverNode.Balances[newNode.host.ID().String()])
 }

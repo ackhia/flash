@@ -26,7 +26,7 @@ func (n Node) startTransactionServer() {
 	select {}
 }
 
-func (n Node) startVerificationServer() {
+func (n *Node) startVerificationServer() {
 	n.host.SetStreamHandler(verifyTxProtocol, func(s network.Stream) {
 		defer s.Close()
 
@@ -103,7 +103,7 @@ func (n Node) startVerificationServer() {
 	select {}
 }
 
-func (n Node) startCommitTxServer() {
+func (n *Node) startCommitTxServer() {
 	n.host.SetStreamHandler(commitTxProtocol, func(s network.Stream) {
 
 		defer s.Close()
