@@ -335,3 +335,50 @@ func TestTransfer_NormalThreePeers(t *testing.T) {
 	assert.Equal(t, float64(3000), node2.TotalCoins)
 	assert.Equal(t, float64(3000), node3.TotalCoins)
 }
+
+func TestNodeSync(t *testing.T) {
+	mn := mocknet.New()
+
+	serverNode, clientNode := Node{}, Node{}
+
+	clientHost, err := mn.GenPeer()
+	assert.NoError(t, err)
+
+	serverHost, err := mn.GenPeer()
+	assert.NoError(t, err)
+
+	err = mn.LinkAll()
+	assert.NoError(t, err)
+
+	genesis := make(map[string]float64)
+	genesis[clientHost.ID().String()] = 500
+	genesis[serverHost.ID().String()] = 1000
+
+	privKey := serverHost.Peerstore().PrivKey(serverHost.ID())
+	serverNode.Init(privKey, []string{}, genesis, serverHost)
+	serverMultiAddr := createMultiaddress(t, serverNode)
+
+	privKey = clientHost.Peerstore().PrivKey(clientHost.ID())
+	clientNode.Init(privKey, []string{serverMultiAddr}, genesis, clientHost)
+
+	err = clientNode.Transfer(serverHost.ID().String(), 30)
+	assert.NoError(t, err)
+
+	//Create and join a new node
+	newNode := Node{}
+
+	newHost, err := mn.GenPeer()
+	assert.NoError(t, err)
+
+	mn.LinkAll()
+	assert.NoError(t, err)
+
+	privKey = serverHost.Peerstore().PrivKey(serverHost.ID())
+	clientMultiAddr := createMultiaddress(t, clientNode)
+	newNode.Init(privKey, []string{serverMultiAddr, clientMultiAddr}, genesis, newHost)
+
+	assert.Equal(t, 1, len(newNode.Txs))
+
+	assert.Equal(t, float64(470), newNode.Balances[clientNode.host.ID().String()])
+	assert.Equal(t, float64(1030), newNode.Balances[serverNode.host.ID().String()])
+}
