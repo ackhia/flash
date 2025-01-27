@@ -1,11 +1,12 @@
-package main
+package ui
 
 import (
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
+	"github.com/ackhia/flash/node"
+	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -22,7 +23,7 @@ const (
 	viewLogsPage
 )
 
-type model struct {
+type Model struct {
 	currentPage    page
 	menuOptions    []string
 	selectedOption int
@@ -30,13 +31,14 @@ type model struct {
 	amountInput    textinput.Model
 	table          table.Model
 	viewport       viewport.Model
-	logFile        *os.File
 	peerID         string
+	peerMA         string
 	balance        float64
 	connectedPeers int
 	totalCoins     float64
 	peers          []peer
 	logs           []string
+	node           *node.Node
 }
 
 type peer struct {
@@ -44,7 +46,7 @@ type peer struct {
 	Balance float64
 }
 
-func initialModel() model {
+func initialModel() Model {
 	menu := []string{
 		"My Node",
 		"Send Transaction",
@@ -68,17 +70,17 @@ func initialModel() model {
 	amountInput.Placeholder = "Enter Amount"
 
 	vp := viewport.New(40, 10)
-	return model{
+	return Model{
 		currentPage:    mainPage,
 		menuOptions:    menu,
 		peerIDInput:    peerIDInput,
 		amountInput:    amountInput,
 		table:          t,
 		viewport:       vp,
-		peerID:         "abc123",
-		balance:        100.0,
-		connectedPeers: 5,
-		totalCoins:     1000.0,
+		peerID:         "",
+		balance:        0,
+		connectedPeers: 0,
+		totalCoins:     0,
 		peers: []peer{
 			{"peer1", 50.0},
 			{"peer2", 30.0},
@@ -87,11 +89,12 @@ func initialModel() model {
 	}
 }
 
-func (m model) Init() tea.Cmd {
+func (m *Model) Init() tea.Cmd {
+	m.refreshModel()
 	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -108,6 +111,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.currentPage == mainPage {
 				m.currentPage = page(m.selectedOption + 1)
+				m.refreshModel()
 				if m.currentPage == sendTransactionPage {
 					m.peerIDInput.Focus()
 					m.amountInput.Blur()
@@ -137,6 +141,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.amountInput.Blur()
 				}
 			}
+		case "c":
+			if m.currentPage == myNodePage {
+				clipboard.WriteAll(m.peerMA)
+			}
+
 		case "esc":
 			if m.currentPage == mainPage {
 				return m, tea.Quit
@@ -161,7 +170,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) View() string {
+func (m Model) View() string {
 	switch m.currentPage {
 	case mainPage:
 		return m.viewMainMenu()
@@ -177,7 +186,7 @@ func (m model) View() string {
 	return ""
 }
 
-func (m model) viewMainMenu() string {
+func (m Model) viewMainMenu() string {
 	var sb strings.Builder
 	sb.WriteString("Select an option\n\n")
 	for i, opt := range m.menuOptions {
@@ -191,17 +200,18 @@ func (m model) viewMainMenu() string {
 	return sb.String()
 }
 
-func (m model) viewMyNode() string {
+func (m Model) viewMyNode() string {
 	return fmt.Sprintf(
-		"My Node:\n\n%-30s %s\n%-30s %.2f\n%-30s %d\n%-30s %.2f\n\nPress ESC to go back.",
+		"My Node:\n\n%-30s %s\n%-30s %s\n%-30s %.2f\n%-30s %d\n%-30s %.2f\n\nPress ESC to go back. Press c to copy Peer Multiaddress to clipboard",
 		"Peer ID:", m.peerID,
+		"Peer Multiaddress:", m.peerMA,
 		"Balance:", m.balance,
 		"Connected Peers:", m.connectedPeers,
 		"Coins in Circulation:", m.totalCoins,
 	)
 }
 
-func (m model) viewSendTransaction() string {
+func (m Model) viewSendTransaction() string {
 	return fmt.Sprintf(
 		"Send Transaction:\n\n%s\n%s\n\nPress ENTER to send, TAB to switch, ESC to go back.",
 		m.peerIDInput.View(),
@@ -209,7 +219,7 @@ func (m model) viewSendTransaction() string {
 	)
 }
 
-func (m model) viewPeers() string {
+func (m Model) viewPeers() string {
 	rows := []table.Row{}
 	for _, p := range m.peers {
 		rows = append(rows, table.Row{p.ID, fmt.Sprintf("%.2f", p.Balance)})
@@ -219,22 +229,39 @@ func (m model) viewPeers() string {
 	return fmt.Sprintf("Peers:\n\n%s\n\nPress ESC to go back.", m.table.View())
 }
 
-func (m model) viewLogs() string {
+func (m Model) viewLogs() string {
 	return fmt.Sprintf(
 		"Logs:\n\n%s\n\nPress ESC to go back.",
 		strings.Join(m.logs, "\n"),
 	)
 }
 
-func main() {
-	logFile, err := os.Create("logs.txt")
-	if err != nil {
-		log.Fatalf("Failed to create log file: %v", err)
+func (m *Model) refreshModel() {
+	m.peerID = m.node.Host.ID().String()
+	m.balance = m.node.Balances[m.node.Host.ID().String()]
+	m.totalCoins = m.node.TotalCoins
+	m.connectedPeers = len(m.node.Host.Network().Peers())
+	m.peers = []peer{}
+	for _, p := range m.node.Host.Network().Peers() {
+		m.peers = append(m.peers, peer{
+			ID:      p.String(),
+			Balance: m.node.Balances[p.String()],
+		})
 	}
-	defer logFile.Close()
-	log.SetOutput(logFile)
 
-	if err := tea.NewProgram(initialModel()).Start(); err != nil {
+	ma, err := node.CreateMultiaddress(m.node)
+	if err != nil {
+		log.Print("Could not create multiaddress")
+		return
+	}
+	m.peerMA = ma
+}
+
+func Show(n *node.Node) {
+	m := initialModel()
+	m.node = n
+	p := tea.NewProgram(&m)
+	if _, err := p.Run(); err != nil {
 		log.Fatalf("Error running program: %v", err)
 	}
 }

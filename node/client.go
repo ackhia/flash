@@ -24,9 +24,9 @@ func (n Node) getTransactions(addrInfo string) (map[string][]models.Tx, error) {
 		return nil, fmt.Errorf("invalid address %s %v", addrInfo, err)
 	}
 
-	n.host.Connect(context.Background(), *serverAddr)
+	n.Host.Connect(context.Background(), *serverAddr)
 
-	stream, err := n.host.NewStream(context.Background(), serverAddr.ID, protocol.ID("/flash/transactions/1.0.0"))
+	stream, err := n.Host.NewStream(context.Background(), serverAddr.ID, protocol.ID("/flash/transactions/1.0.0"))
 
 	if err != nil {
 		return nil, fmt.Errorf("could not create stream %v", err)
@@ -45,12 +45,12 @@ func (n Node) getTransactions(addrInfo string) (map[string][]models.Tx, error) {
 }
 
 func (n Node) fetchVerifications(tx *models.Tx) error {
-	peers := n.host.Peerstore().Peers()
+	peers := n.Host.Peerstore().Peers()
 
 	for _, p := range peers {
 
 		//Don't connect to myself
-		if p == n.host.ID() {
+		if p == n.Host.ID() {
 			continue
 		}
 
@@ -72,7 +72,7 @@ func (n Node) getNodeVerification(tx *models.Tx, p peer.ID) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	stream, err := n.host.NewStream(ctx, p, protocolID)
+	stream, err := n.Host.NewStream(ctx, p, protocolID)
 	if err != nil {
 		return fmt.Errorf("failed to open stream: %v", err)
 	}
@@ -102,7 +102,7 @@ func (n Node) getNodeVerification(tx *models.Tx, p peer.ID) error {
 	verifier.Sig = data
 	verifier.ID = p.String()
 
-	pubKey := n.host.Peerstore().PubKey(p)
+	pubKey := n.Host.Peerstore().PubKey(p)
 	r, err := fcrypto.VerifyVerifier(&verifier, tx, pubKey, p)
 
 	if err != nil {
@@ -125,7 +125,7 @@ func (n Node) VerifyTx(tx *models.Tx) error {
 		return err
 	}
 
-	n.Txs[n.host.ID().String()] = append(n.Txs[n.host.ID().String()], *tx)
+	n.Txs[n.Host.ID().String()] = append(n.Txs[n.Host.ID().String()], *tx)
 
 	_, err = n.isVerifierConsensus(tx)
 	if err != nil {
@@ -165,12 +165,12 @@ func (n *Node) BuildTx(from string, to string, amount float64, pubKey []byte) (*
 
 func (n Node) CommitTx(tx *models.Tx) {
 
-	peers := n.host.Peerstore().Peers()
+	peers := n.Host.Peerstore().Peers()
 
 	for _, p := range peers {
 
 		//Don't connect to myself
-		if p == n.host.ID() {
+		if p == n.Host.ID() {
 			continue
 		}
 
@@ -194,7 +194,7 @@ func (n Node) sendPeerCommit(tx *models.Tx, p peer.ID) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	stream, err := n.host.NewStream(ctx, p, protocolID)
+	stream, err := n.Host.NewStream(ctx, p, protocolID)
 	if err != nil {
 		return fmt.Errorf("failed to open stream: %v", err)
 	}

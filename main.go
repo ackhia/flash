@@ -1,23 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"os"
 
-	"github.com/ackhia/flash/crypto"
+	"github.com/ackhia/flash/config"
+	fcrypto "github.com/ackhia/flash/crypto"
+	"github.com/ackhia/flash/node"
+	"github.com/ackhia/flash/p2p"
+	"github.com/ackhia/flash/ui"
 	golog "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	golog.SetAllLoggers(golog.LevelInfo) // Change to INFO for extra info
-
-	// Parse options from the command line
-	/*listenF := flag.Int("l", 0, "wait for incoming connections")
-	targetF := flag.String("d", "", "target peer to dial")
-	insecureF := flag.Bool("insecure", false, "use an unencrypted connection")
-	seedF := flag.Int64("seed", 0, "set random seed for id generation")
-	flag.Parse()*/
+	golog.SetAllLoggers(golog.LevelInfo)
 
 	var rootCmd = &cobra.Command{Use: "flash"}
 
@@ -26,8 +24,8 @@ func main() {
 		Short: "Create a key pair",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			priv, pub := crypto.CreateKeyPair()
-			crypto.WriteKeyfile(args[0], priv, pub)
+			priv, _ := fcrypto.CreateKeyPair()
+			fcrypto.WritePrivateKey(args[0], priv)
 		},
 	}
 
@@ -36,20 +34,51 @@ func main() {
 		Short: "Start the node",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			priv, pub, err := crypto.ReadKeyfile(args[0])
+			priv, err := fcrypto.ReadPrivateKey(args[0])
 			if err != nil {
 				log.Fatalf("Could not read file %s %v", args[0], err)
 			}
 
-			privBytes, _ := priv.Raw()
-			pubBytes, _ := pub.Raw()
-
-			fmt.Printf("Private key: %s, Public key: %s", privBytes, pubBytes)
+			startNode(priv)
 		},
 	}
 
 	rootCmd.AddCommand(genCmd, startCmd)
 	rootCmd.Execute()
+}
 
-	//p2p.StartP2p(*listenF, *targetF, *insecureF, *seedF)
+func startNode(privKey crypto.PrivKey) {
+	//setupLogging()
+
+	host, err := p2p.MakeHost(&privKey)
+	if err != nil {
+		log.Fatalf("Could not make host %v", err)
+	}
+
+	const bootstrapFilename = "bootstrap.yaml"
+	bs, err := config.ReadBootstrapPeers(bootstrapFilename)
+	if err != nil {
+		log.Fatalf("Could not read %s %v", bootstrapFilename, err)
+	}
+
+	const genesisFilename = "genesis.yaml"
+	genesis, err := config.ReadGenesis(genesisFilename)
+	if err != nil {
+		log.Fatalf("Could not read %s %v", genesisFilename, err)
+	}
+
+	n := node.New(privKey, &host, genesis, bs)
+
+	n.Start()
+
+	ui.Show(n)
+}
+
+func setupLogging() {
+	logFile, err := os.Create("log.txt")
+	if err != nil {
+		log.Fatalf("Failed to create log file: %v", err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
 }

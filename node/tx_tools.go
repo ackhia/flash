@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ackhia/flash/models"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func (n Node) mergeTxs(tx1, tx2 map[string][]models.Tx) map[string][]models.Tx {
@@ -57,4 +58,16 @@ func (n *Node) calcBalances() error {
 	}
 
 	return nil
+}
+
+func CreateMultiaddress(node *Node) (string, error) {
+	addr := node.Host.Addrs()[0].String()
+
+	maddr, err := ma.NewMultiaddr(addr)
+	if err != nil {
+		return "", err
+	}
+
+	serverMultiAddr := maddr.String() + "/p2p/" + node.Host.ID().String()
+	return serverMultiAddr, nil
 }

@@ -12,10 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createNetworkTwoPeers(t *testing.T, clientBalance float64, serverBalance float64) (Node, Node) {
+func createNetworkTwoPeers(t *testing.T, clientBalance float64, serverBalance float64) (*Node, *Node) {
 	mn := mocknet.New()
-
-	serverNode, clientNode := Node{}, Node{}
 
 	clientHost, err := mn.GenPeer()
 	assert.NoError(t, err)
@@ -31,24 +29,24 @@ func createNetworkTwoPeers(t *testing.T, clientBalance float64, serverBalance fl
 	genesis[serverHost.ID().String()] = serverBalance
 
 	privKey := serverHost.Peerstore().PrivKey(serverHost.ID())
-	serverNode.Init(privKey, []string{}, genesis, serverHost)
+	serverNode := New(privKey, &serverHost, genesis, []string{})
+	serverNode.Start()
 	serverMultiAddr := createMultiaddress(t, serverNode)
 
 	privKey = clientHost.Peerstore().PrivKey(clientHost.ID())
-	clientNode.Init(privKey, []string{serverMultiAddr}, genesis, clientHost)
+	clientNode := New(privKey, &clientHost, genesis, []string{serverMultiAddr})
+	clientNode.Start()
 
-	log.Printf("Client peer ID: %s", clientNode.host.ID())
-	log.Printf("Server peer ID: %s", serverNode.host.ID())
+	log.Printf("Client peer ID: %s", clientNode.Host.ID())
+	log.Printf("Server peer ID: %s", serverNode.Host.ID())
 
 	return serverNode, clientNode
 }
 
-func createNetworkThreePeers(t *testing.T, node1Balance float64, node2Balance float64, node3Balance float64) (Node, Node, Node) {
+func createNetworkThreePeers(t *testing.T, node1Balance float64, node2Balance float64, node3Balance float64) (*Node, *Node, *Node) {
 	mn := mocknet.New()
 
-	node1, node2, node3 := Node{}, Node{}, Node{}
-
-	node1tHost, err := mn.GenPeer()
+	node1Host, err := mn.GenPeer()
 	assert.NoError(t, err)
 
 	node2Host, err := mn.GenPeer()
@@ -61,42 +59,45 @@ func createNetworkThreePeers(t *testing.T, node1Balance float64, node2Balance fl
 	assert.NoError(t, err)
 
 	genesis := make(map[string]float64)
-	genesis[node1tHost.ID().String()] = node1Balance
+	genesis[node1Host.ID().String()] = node1Balance
 	genesis[node2Host.ID().String()] = node2Balance
 	genesis[node3Host.ID().String()] = node3Balance
 
-	privKey := node1tHost.Peerstore().PrivKey(node1tHost.ID())
-	node1.Init(privKey, []string{}, genesis, node1tHost)
+	privKey := node1Host.Peerstore().PrivKey(node1Host.ID())
+	node1 := New(privKey, &node1Host, genesis, []string{})
+	node1.Start()
 	node1MultiAddr := createMultiaddress(t, node1)
 
 	privKey = node2Host.Peerstore().PrivKey(node2Host.ID())
-	node2.Init(privKey, []string{node1MultiAddr}, genesis, node2Host)
+	node2 := New(privKey, &node2Host, genesis, []string{node1MultiAddr})
+	node2.Start()
 	node2MultiAddr := createMultiaddress(t, node2)
 
 	privKey = node3Host.Peerstore().PrivKey(node3Host.ID())
-	node3.Init(privKey, []string{node1MultiAddr, node2MultiAddr}, genesis, node3Host)
+	node3 := New(privKey, &node3Host, genesis, []string{node1MultiAddr, node2MultiAddr})
+	node3.Start()
 
 	return node1, node2, node3
 }
 
-func createMultiaddress(t *testing.T, serverNode Node) string {
-	serverAddr := serverNode.host.Addrs()[0].String()
+func createMultiaddress(t *testing.T, node *Node) string {
+	addr := node.Host.Addrs()[0].String()
 
-	maddr, err := ma.NewMultiaddr(serverAddr)
+	maddr, err := ma.NewMultiaddr(addr)
 	assert.NoError(t, err)
 
-	serverMultiAddr := maddr.String() + "/p2p/" + serverNode.host.ID().String()
+	serverMultiAddr := maddr.String() + "/p2p/" + node.Host.ID().String()
 	return serverMultiAddr
 }
 
 func TestVerifyTx_NormalTx(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1000, 3000)
 
-	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
+	pubKeyBytes, err := crypto.MarshalPublicKey(client.Host.Peerstore().PubKey(client.Host.ID()))
 	assert.NoError(t, err)
 
-	tx, err := client.BuildTx(client.host.ID().String(),
-		server.host.ID().String(),
+	tx, err := client.BuildTx(client.Host.ID().String(),
+		server.Host.ID().String(),
 		20,
 		pubKeyBytes,
 	)
@@ -113,7 +114,7 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 		t.Fatal("Verification not found")
 	}
 
-	r, err := fcrypto.VerifyVerifier(&tx.Verifiers[0], tx, server.privKey.GetPublic(), server.host.ID())
+	r, err := fcrypto.VerifyVerifier(&tx.Verifiers[0], tx, server.privKey.GetPublic(), server.Host.ID())
 
 	assert.NoError(t, err)
 
@@ -130,8 +131,8 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 		t.Fatal("Tx not in client")
 	}
 
-	clientTx := &client.Txs[client.host.ID().String()][0]
-	serverTx := &server.Txs[client.host.ID().String()][0]
+	clientTx := &client.Txs[client.Host.ID().String()][0]
+	serverTx := &server.Txs[client.Host.ID().String()][0]
 
 	if !bytes.Equal(clientTx.Sig, tx.Sig) {
 		t.Fatal("Invlid client tx")
@@ -164,11 +165,11 @@ func TestVerifyTx_NormalTx(t *testing.T) {
 func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1000, 3000)
 
-	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
+	pubKeyBytes, err := crypto.MarshalPublicKey(client.Host.Peerstore().PubKey(client.Host.ID()))
 	assert.NoError(t, err)
 
-	tx, err := client.BuildTx(client.host.ID().String(),
-		server.host.ID().String(),
+	tx, err := client.BuildTx(client.Host.ID().String(),
+		server.Host.ID().String(),
 		2000,
 		pubKeyBytes)
 
@@ -185,11 +186,11 @@ func TestVerifyTx_ClientBalanceTooLow(t *testing.T) {
 func TestVerifyTx_VerifierBalanceTooLow(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1000, 500)
 
-	pubKeyBytes, err := crypto.MarshalPublicKey(client.host.Peerstore().PubKey(client.host.ID()))
+	pubKeyBytes, err := crypto.MarshalPublicKey(client.Host.Peerstore().PubKey(client.Host.ID()))
 	assert.NoError(t, err)
 
-	tx, err := client.BuildTx(client.host.ID().String(),
-		server.host.ID().String(),
+	tx, err := client.BuildTx(client.Host.ID().String(),
+		server.Host.ID().String(),
 		100,
 		pubKeyBytes)
 
@@ -211,39 +212,39 @@ func TestCalcTotalCoins(t *testing.T) {
 func TestTransfer_Normal(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 500, 1000)
 
-	toAddr := server.host.ID().String()
+	toAddr := server.Host.ID().String()
 	err := client.Transfer(toAddr, 25)
 
 	assert.NoError(t, err)
 
 	assert.Equal(t, float64(1025), server.Balances[toAddr])
-	assert.Equal(t, float64(475), server.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(475), server.Balances[client.Host.ID().String()])
 	assert.Equal(t, float64(1025), client.Balances[toAddr])
-	assert.Equal(t, float64(475), client.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(475), client.Balances[client.Host.ID().String()])
 
 }
 
 func TestTransfer_TwoTransfers(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 500, 1000)
 
-	toAddr := server.host.ID().String()
+	toAddr := server.Host.ID().String()
 	err := client.Transfer(toAddr, 25)
 
 	assert.NoError(t, err)
 
 	assert.Equal(t, float64(1025), server.Balances[toAddr])
-	assert.Equal(t, float64(475), server.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(475), server.Balances[client.Host.ID().String()])
 	assert.Equal(t, float64(1025), client.Balances[toAddr])
-	assert.Equal(t, float64(475), client.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(475), client.Balances[client.Host.ID().String()])
 
 	err = client.Transfer(toAddr, 30)
 
 	assert.NoError(t, err)
 
 	assert.Equal(t, float64(1055), server.Balances[toAddr])
-	assert.Equal(t, float64(445), server.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(445), server.Balances[client.Host.ID().String()])
 	assert.Equal(t, float64(1055), client.Balances[toAddr])
-	assert.Equal(t, float64(445), client.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(445), client.Balances[client.Host.ID().String()])
 
 	assert.Equal(t, client.nextSequenceNum, 2)
 	assert.Equal(t, server.nextSequenceNum, 0)
@@ -252,38 +253,38 @@ func TestTransfer_TwoTransfers(t *testing.T) {
 func TestTransfer_BalanceInsufficient(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 500, 1000)
 
-	toAddr := server.host.ID().String()
+	toAddr := server.Host.ID().String()
 	err := client.Transfer(toAddr, 600)
 
 	assert.Error(t, err)
 
 	assert.Equal(t, float64(1000), server.Balances[toAddr])
-	assert.Equal(t, float64(500), server.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(500), server.Balances[client.Host.ID().String()])
 	assert.Equal(t, float64(1000), client.Balances[toAddr])
-	assert.Equal(t, float64(500), client.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(500), client.Balances[client.Host.ID().String()])
 
 }
 
 func TestTransfer_BalanceNoConsensus(t *testing.T) {
 	server, client := createNetworkTwoPeers(t, 1500, 1000)
 
-	toAddr := server.host.ID().String()
+	toAddr := server.Host.ID().String()
 	err := client.Transfer(toAddr, 600)
 
 	assert.Error(t, err)
 
 	assert.Equal(t, float64(1000), server.Balances[toAddr])
-	assert.Equal(t, float64(1500), server.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(1500), server.Balances[client.Host.ID().String()])
 	assert.Equal(t, float64(1000), client.Balances[toAddr])
-	assert.Equal(t, float64(1500), client.Balances[client.host.ID().String()])
+	assert.Equal(t, float64(1500), client.Balances[client.Host.ID().String()])
 
 }
 
 func TestTransfer_NormalThreePeers(t *testing.T) {
 	node1, node2, node3 := createNetworkThreePeers(t, 1000, 1000, 1000)
 
-	toAddr := node2.host.ID().String()
-	fromAddr := node1.host.ID().String()
+	toAddr := node2.Host.ID().String()
+	fromAddr := node1.Host.ID().String()
 	err := node1.Transfer(toAddr, 25)
 
 	assert.NoError(t, err)
@@ -303,8 +304,6 @@ func TestTransfer_NormalThreePeers(t *testing.T) {
 func TestNodeSync(t *testing.T) {
 	mn := mocknet.New()
 
-	serverNode, clientNode := Node{}, Node{}
-
 	clientHost, err := mn.GenPeer()
 	assert.NoError(t, err)
 
@@ -319,18 +318,18 @@ func TestNodeSync(t *testing.T) {
 	genesis[serverHost.ID().String()] = 1000
 
 	privKey := serverHost.Peerstore().PrivKey(serverHost.ID())
-	serverNode.Init(privKey, []string{}, genesis, serverHost)
+	serverNode := New(privKey, &serverHost, genesis, []string{})
+	serverNode.Start()
 	serverMultiAddr := createMultiaddress(t, serverNode)
 
 	privKey = clientHost.Peerstore().PrivKey(clientHost.ID())
-	clientNode.Init(privKey, []string{serverMultiAddr}, genesis, clientHost)
+	clientNode := New(privKey, &clientHost, genesis, []string{serverMultiAddr})
+	clientNode.Start()
 
 	err = clientNode.Transfer(serverHost.ID().String(), 30)
 	assert.NoError(t, err)
 
 	//Create and join a new node
-	newNode := Node{}
-
 	newHost, err := mn.GenPeer()
 	assert.NoError(t, err)
 
@@ -339,24 +338,25 @@ func TestNodeSync(t *testing.T) {
 
 	privKey = serverHost.Peerstore().PrivKey(serverHost.ID())
 	clientMultiAddr := createMultiaddress(t, clientNode)
-	newNode.Init(privKey, []string{serverMultiAddr, clientMultiAddr}, genesis, newHost)
+	newNode := New(privKey, &newHost, genesis, []string{serverMultiAddr, clientMultiAddr})
+	newNode.Start()
 
 	assert.Equal(t, 1, len(newNode.Txs))
 
-	assert.Equal(t, float64(470), newNode.Balances[clientNode.host.ID().String()])
-	assert.Equal(t, float64(1030), newNode.Balances[serverNode.host.ID().String()])
+	assert.Equal(t, float64(470), newNode.Balances[clientNode.Host.ID().String()])
+	assert.Equal(t, float64(1030), newNode.Balances[serverNode.Host.ID().String()])
 
-	clientNode.Transfer(newNode.host.ID().String(), 20)
+	clientNode.Transfer(newNode.Host.ID().String(), 20)
 
-	assert.Equal(t, float64(450), newNode.Balances[clientNode.host.ID().String()])
-	assert.Equal(t, float64(1030), newNode.Balances[serverNode.host.ID().String()])
-	assert.Equal(t, float64(20), newNode.Balances[newNode.host.ID().String()])
+	assert.Equal(t, float64(450), newNode.Balances[clientNode.Host.ID().String()])
+	assert.Equal(t, float64(1030), newNode.Balances[serverNode.Host.ID().String()])
+	assert.Equal(t, float64(20), newNode.Balances[newNode.Host.ID().String()])
 
-	assert.Equal(t, float64(450), clientNode.Balances[clientNode.host.ID().String()])
-	assert.Equal(t, float64(1030), clientNode.Balances[serverNode.host.ID().String()])
-	assert.Equal(t, float64(20), clientNode.Balances[newNode.host.ID().String()])
+	assert.Equal(t, float64(450), clientNode.Balances[clientNode.Host.ID().String()])
+	assert.Equal(t, float64(1030), clientNode.Balances[serverNode.Host.ID().String()])
+	assert.Equal(t, float64(20), clientNode.Balances[newNode.Host.ID().String()])
 
-	assert.Equal(t, float64(450), serverNode.Balances[clientNode.host.ID().String()])
-	assert.Equal(t, float64(1030), serverNode.Balances[serverNode.host.ID().String()])
-	assert.Equal(t, float64(20), serverNode.Balances[newNode.host.ID().String()])
+	assert.Equal(t, float64(450), serverNode.Balances[clientNode.Host.ID().String()])
+	assert.Equal(t, float64(1030), serverNode.Balances[serverNode.Host.ID().String()])
+	assert.Equal(t, float64(20), serverNode.Balances[newNode.Host.ID().String()])
 }

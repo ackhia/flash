@@ -13,7 +13,7 @@ import (
 )
 
 func (n Node) startTransactionServer() {
-	n.host.SetStreamHandler("/flash/transactions/1.0.0", func(s network.Stream) {
+	n.Host.SetStreamHandler("/flash/transactions/1.0.0", func(s network.Stream) {
 		defer s.Close()
 		data, err := json.Marshal(n.Txs)
 		if err != nil {
@@ -27,7 +27,7 @@ func (n Node) startTransactionServer() {
 }
 
 func (n *Node) startVerificationServer() {
-	n.host.SetStreamHandler(verifyTxProtocol, func(s network.Stream) {
+	n.Host.SetStreamHandler(verifyTxProtocol, func(s network.Stream) {
 		defer s.Close()
 
 		log.Print("Client connected to verification server")
@@ -104,7 +104,7 @@ func (n *Node) startVerificationServer() {
 }
 
 func (n *Node) startCommitTxServer() {
-	n.host.SetStreamHandler(commitTxProtocol, func(s network.Stream) {
+	n.Host.SetStreamHandler(commitTxProtocol, func(s network.Stream) {
 
 		defer s.Close()
 
@@ -157,7 +157,7 @@ func (n *Node) startCommitTxServer() {
 				return
 			}
 
-			result, err := fcrypto.VerifyVerifier(&v, &tx, n.host.Network().Peerstore().PubKey(peerID), peerID)
+			result, err := fcrypto.VerifyVerifier(&v, &tx, n.Host.Network().Peerstore().PubKey(peerID), peerID)
 
 			if err != nil {
 				log.Printf("Verifier not valid %v", err)
