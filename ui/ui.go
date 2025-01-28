@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type page int
@@ -179,9 +180,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
+
 	switch m.currentPage {
 	case mainPage:
-		return m.viewMainMenu()
+		title := `
+	________           __  
+   / ____/ /___ ______/ /_ 
+  / /_  / / __  / ___/ __ \
+ / __/ / / /_/ (__  ) / / /
+/_/   /_/\__,_/____/_/ /_/ 
+Fast // Feeless // Secure
+	`
+		titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#45d640"))
+		title = titleStyle.Render(title) + "\n"
+		return title + m.viewMainMenu()
 	case myNodePage:
 		return m.viewMyNode()
 	case sendTransactionPage:
