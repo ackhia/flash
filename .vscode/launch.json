@@ -10,8 +10,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "./main.go",
-            "args": ["start", "./key/node1"],
-            "console": "integratedTerminal"
+            "args": ["start", "./key/node1", "-p", "61790"],
+            "console": "integratedTerminal",
         },
     ]
 }

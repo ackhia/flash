@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/ackhia/flash/node"
@@ -20,7 +21,6 @@ const (
 	myNodePage
 	sendTransactionPage
 	viewPeersPage
-	viewLogsPage
 )
 
 type Model struct {
@@ -37,8 +37,8 @@ type Model struct {
 	connectedPeers int
 	totalCoins     float64
 	peers          []peer
-	logs           []string
 	node           *node.Node
+	message        string
 }
 
 type peer struct {
@@ -51,7 +51,6 @@ func initialModel() Model {
 		"My Node",
 		"Send Transaction",
 		"View Peers",
-		"View Logs",
 	}
 
 	columns := []table.Column{
@@ -85,7 +84,7 @@ func initialModel() Model {
 			{"peer1", 50.0},
 			{"peer2", 30.0},
 		},
-		logs: []string{},
+		message: "",
 	}
 }
 
@@ -115,6 +114,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.currentPage == sendTransactionPage {
 					m.peerIDInput.Focus()
 					m.amountInput.Blur()
+					m.message = ""
 				}
 			} else if m.currentPage == sendTransactionPage {
 				if m.peerIDInput.Focused() {
@@ -124,10 +124,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					peerID := strings.TrimSpace(m.peerIDInput.Value())
 					amount := strings.TrimSpace(m.amountInput.Value())
 					if peerID != "" && amount != "" {
-						m.logs = append(m.logs, fmt.Sprintf("Transaction sent: PeerID=%s, Amount=%s", peerID, amount))
+						// Simulate transaction success/failure
+						err := m.sendTransaction(peerID, amount)
+						if err != nil {
+							m.message = "Transaction failed. See log for details"
+							log.Print(err)
+						} else {
+							m.message = "Transaction sent"
+						}
 						m.peerIDInput.SetValue("")
 						m.amountInput.SetValue("")
 						m.peerIDInput.Focus()
+						m.amountInput.Blur()
 					}
 				}
 			}
@@ -180,8 +188,6 @@ func (m Model) View() string {
 		return m.viewSendTransaction()
 	case viewPeersPage:
 		return m.viewPeers()
-	case viewLogsPage:
-		return m.viewLogs()
 	}
 	return ""
 }
@@ -212,11 +218,14 @@ func (m Model) viewMyNode() string {
 }
 
 func (m Model) viewSendTransaction() string {
-	return fmt.Sprintf(
-		"Send Transaction:\n\n%s\n%s\n\nPress ENTER to send, TAB to switch, ESC to go back.",
+	view := fmt.Sprintf(
+		"Send Transaction:\n\n%s\n%s\n\n%sPress ENTER to send, TAB to switch, ESC to go back.",
 		m.peerIDInput.View(),
 		m.amountInput.View(),
+		m.message+"\n",
 	)
+
+	return view
 }
 
 func (m Model) viewPeers() string {
@@ -227,13 +236,6 @@ func (m Model) viewPeers() string {
 	m.table.SetCursor(-1)
 	m.table.SetRows(rows)
 	return fmt.Sprintf("Peers:\n\n%s\n\nPress ESC to go back.", m.table.View())
-}
-
-func (m Model) viewLogs() string {
-	return fmt.Sprintf(
-		"Logs:\n\n%s\n\nPress ESC to go back.",
-		strings.Join(m.logs, "\n"),
-	)
 }
 
 func (m *Model) refreshModel() {
@@ -264,4 +266,18 @@ func Show(n *node.Node) {
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("Error running program: %v", err)
 	}
+}
+
+func (m Model) sendTransaction(peerID, amount string) error {
+
+	amountFloat, err := strconv.ParseFloat(amount, 64)
+	if err != nil {
+		return fmt.Errorf("invalid amount")
+	}
+	err = m.node.Transfer(peerID, amountFloat)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

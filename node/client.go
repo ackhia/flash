@@ -58,14 +58,14 @@ func (n Node) fetchVerifications(tx *models.Tx) error {
 		if err != nil {
 			log.Printf("Error sending tx to peer %s: %v", p, err)
 		} else {
-			fmt.Printf("Message sent to peer %s\n", p)
+			log.Printf("Message sent to peer %s\n", p)
 		}
 	}
 	return nil
 }
 
 func (n Node) getNodeVerification(tx *models.Tx, p peer.ID) error {
-	fmt.Printf("Connecting to %s", p)
+	log.Printf("Connecting to %s", p)
 
 	protocolID := protocol.ID(verifyTxProtocol)
 
@@ -178,7 +178,7 @@ func (n Node) CommitTx(tx *models.Tx) {
 		if err != nil {
 			log.Printf("Error sending commit tx to peer %s: %v", p, err)
 		} else {
-			fmt.Printf("Commit message sent to peer %s\n", p)
+			log.Printf("Commit message sent to peer %s\n", p)
 		}
 	}
 
