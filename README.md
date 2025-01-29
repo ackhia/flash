@@ -32,13 +32,27 @@ Next run a node for alice
 
 Go to the *My Node* page then press *c* to copy the Multiaddress.
 
-Create a file called boostrap.txt and pate in the address.
+Create a file called *boostrap.txt* and pate in the address.
 
 The part of the Muliaddress after the last slash is the PeerID. We need to copy that and put it in a file called genesis.yaml which will then look something like this. The 1000 is the starting number of coins.
 ```
-QmVS6ydZ2zfRTk4BARhtacdCJED5DYQvXAJJwkaps8kenw: 1000
+QmUHRt5oVsRvzUSKDCdqQ7vjKEpgVTGhhbAwn8FAtW1Yu5: 1000
 ```
-Repeat this for bob and eve putting their Multiaddress and PeerID on new lines in the corresponding file. You need to specify a different port for each node which is done via the *-p* flag.
+Repeat this for bob and eve putting their Multiaddress and PeerID on new lines in the corresponding file. You need to specify a different port for each node which is done via the *-p* flag. Your config files should look something like this
+
+genesis.yaml
+```
+QmUHRt5oVsRvzUSKDCdqQ7vjKEpgVTGhhbAwn8FAtW1Yu5: 1000
+QmcKY3aNFhLjksuMT65rDuq3C3JZQcoEaB8JXPiJR5sAkP: 1000
+QmaM4yng1KjjbRsadFkyaZRYX4FscTj61A98rThyLsepFi: 1000
+```
+
+bootstrp.txt
+```
+/ip4/127.0.0.1/tcp/2000/p2p/QmUHRt5oVsRvzUSKDCdqQ7vjKEpgVTGhhbAwn8FAtW1Yu5
+/ip4/127.0.0.1/tcp/2001/p2p/QmcKY3aNFhLjksuMT65rDuq3C3JZQcoEaB8JXPiJR5sAkP
+/ip4/127.0.0.1/tcp/2002/p2p/QmaM4yng1KjjbRsadFkyaZRYX4FscTj61A98rThyLsepFi
+```
 
 Next start three terminals and start one node in each
 ```
