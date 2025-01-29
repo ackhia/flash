@@ -58,7 +58,7 @@ func startNode(privKey crypto.PrivKey, port int) {
 		log.Fatalf("Could not make host %v", err)
 	}
 
-	const bootstrapFilename = "bootstrap.yaml"
+	const bootstrapFilename = "bootstrap.txt"
 	bs, err := config.ReadBootstrapPeers(bootstrapFilename)
 	if err != nil {
 		log.Fatalf("Could not read %s %v", bootstrapFilename, err)
