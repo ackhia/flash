@@ -64,4 +64,4 @@ Next start three terminals and start one node in each
 ```
 ./flash start ./keys/eve -p 2002
 ```
-Now go to Alice’s console window, select Transfer, paste in Bob’s peer ID, enter an amount then hit enter to execute the transaction. The transaction should complete in milliseconds using a lightning bug’s sneeze worth of electricity⚡
+Now go to Alice’s console window, select Transfer, paste in Bob’s peer ID, enter an amount then hit enter to execute the transaction. The transaction should complete in milliseconds using less than a lightning bug’s sneeze worth of electricity⚡
