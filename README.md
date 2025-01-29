@@ -20,7 +20,7 @@ go build
 Then generate three private keys
 
 ```
-Mkdir key
+mkdir key
 ./flash gen ./key/alice && ./flash gen ./key/bob &&./flash gen ./key/eve
 ```
 
@@ -42,12 +42,12 @@ Repeat this for bob and eve putting their Multiaddress and PeerID on new lines i
 
 Next start three terminals and start one node in each
 ```
-Flash start ./keys/alice -p 2000
+./flash start ./keys/alice -p 2000
 ```
 ```
-Flash start ./keys/bob -p 2001
+./flash start ./keys/bob -p 2001
 ```
 ```
-Flash start ./keys/eve -p 2002
+./flash start ./keys/eve -p 2002
 ```
 Now go to Alice’s console window, select Transfer, paste in Bob’s peer ID, enter an amount then hit enter to execute the transaction. The transaction should complete in milliseconds using a lightning bug’s sneeze worth of electricity⚡
