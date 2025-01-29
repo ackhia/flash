@@ -13,6 +13,7 @@ Alice needs signatures from peers that manage over 1500 coins in total. She send
 ## How to setup a network
 First build the project
 ```
+go mod tidy
 go build
 ```
 
